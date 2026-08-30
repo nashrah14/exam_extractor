@@ -15,7 +15,21 @@ function getApiKeys(): string[] {
     keys.push(...splitKeys);
   }
 
+  if (process.env.GEMINI_API_KEY_FALLBACK_2) {
+    const splitKeys = process.env.GEMINI_API_KEY_FALLBACK_2.split(',').map((k) => k.trim()).filter(Boolean);
+    keys.push(...splitKeys);
+  }
+
+  if (process.env.GEMINI_API_KEY_FALLBACK_3) {
+    const splitKeys = process.env.GEMINI_API_KEY_FALLBACK_3.split(',').map((k) => k.trim()).filter(Boolean);
+    keys.push(...splitKeys);
+  }
+
   return Array.from(new Set(keys));
+}
+
+export function hasApiKeys(): boolean {
+  return getApiKeys().length > 0;
 }
 
 // Helper to convert base64 data URL to Gemini GenAI part

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
-import { generateStructuredJson, GradingSchemaGemini, base64ToGenerativePart } from '@/lib/ai/gemini';
+import { generateStructuredJson, GradingSchemaGemini, base64ToGenerativePart, hasApiKeys } from '@/lib/ai/gemini';
 import { GRADING_PROMPT } from '@/lib/ai/prompts';
 
 export const maxDuration = 60;
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY_FALLBACK) {
+    if (!hasApiKeys()) {
       return NextResponse.json(
         { error: 'GEMINI_API_KEY is not configured on the server. Please set it or use Demo Mode.' },
         { status: 400 }
