@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VedaAI Assessment OCR Partner",
+  title: "VedaAI Exam Evaluator",
   description: "AI-powered question extraction, handwriting OCR, answer mapping, and grading evaluation dashboard for educators.",
 };
 
