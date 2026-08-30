@@ -1,16 +1,13 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-import React, { useRef, useEffect, useState } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, ChevronLeft, ChevronRight, CornerDownRight, FileText } from 'lucide-react';
+'use client';
+
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { Minus, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AnswerRegion, Answer } from '@/lib/types';
-import { scaleBox } from '@/lib/utils/coordinates';
 import { mockAnswerSheetPages, MockPageData } from '@/lib/demo-data';
 
 interface AnswerViewerProps {
-  // If real mode, provide pages
   pages?: { pageNumber: number; dataUrl: string; width: number; height: number }[];
-  // Active highlight regions for selected question
   activeRegions: AnswerRegion[];
-  // Selected question text for context header
   selectedLabel: string;
   isDemoMode?: boolean;
   selectedAnswer: Answer | null;
@@ -25,24 +22,31 @@ export const AnswerViewer: React.FC<AnswerViewerProps> = ({
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [zoomScale, setZoomScale] = useState(1.0);
-  const [containerWidth, setContainerWidth] = useState(650);
   const [pageAspect, setPageAspect] = useState(1.29);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const highlightRef = useRef<HTMLDivElement>(null);
 
-  // Total pages
+  // Sync current page with first active region when activeRegions change
+  useEffect(() => {
+    if (activeRegions.length > 0) {
+      setCurrentPage(activeRegions[0].page);
+    }
+  }, [activeRegions]);
+
   const totalPages = isDemoMode ? mockAnswerSheetPages.length : pages.length;
+  const regionPages = useMemo(() => {
+    const pNums = activeRegions.map((region) => region.page);
+    return [...new Set(pNums)].sort((a, b) => a - b);
+  }, [activeRegions]);
 
-  // Ruled Notebook drawing utility for mock data (moved up to avoid TDZ lint error)
+  // Ruled Notebook drawing utility for mock data
   const drawNotebookPage = (
     ctx: CanvasRenderingContext2D,
     canvas: HTMLCanvasElement,
     pageNum: number,
     pageData?: MockPageData
   ) => {
-    // US Letter standard 850x1100
     canvas.width = 850;
     canvas.height = 1100;
 
@@ -50,8 +54,8 @@ export const AnswerViewer: React.FC<AnswerViewerProps> = ({
     ctx.fillStyle = '#fbfbf9';
     ctx.fillRect(0, 0, 850, 1100);
 
-    // Draw notebook line rule margins (vertical red line)
-    ctx.strokeStyle = '#fca5a5'; // light red
+    // Draw vertical red line
+    ctx.strokeStyle = '#fca5a5';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(80, 0);
@@ -59,7 +63,7 @@ export const AnswerViewer: React.FC<AnswerViewerProps> = ({
     ctx.stroke();
 
     // Draw horizontal ruled lines
-    ctx.strokeStyle = '#bfdbfe'; // light blue
+    ctx.strokeStyle = '#bfdbfe';
     ctx.lineWidth = 1.0;
     const lineSpacing = 28;
     for (let y = 100; y < 1100; y += lineSpacing) {
@@ -72,28 +76,27 @@ export const AnswerViewer: React.FC<AnswerViewerProps> = ({
     // Header info (Page index)
     ctx.fillStyle = '#64748b';
     ctx.font = 'bold 12px Courier New';
-    ctx.fillText(`ANSWER SHEET - PAGE ${pageNum}/${totalPages}`, 630, 45);
+    ctx.fillText(`ANSWER SHEET - PAGE ${pageNum}/${totalPages}`, 610, 45);
 
     // Draw handwriting text
     if (pageData) {
       pageData.lines.forEach((line) => {
         if (line.isLabel) {
-          ctx.fillStyle = '#dc2626'; // Red pen for student labels
+          ctx.fillStyle = '#dc2626';
           ctx.font = 'bold italic 17px "Courier New", Courier, monospace';
         } else if (line.isMath) {
-          ctx.fillStyle = '#1e3a8a'; // Dark blue pen for math
+          ctx.fillStyle = '#1e3a8a';
           ctx.font = 'bold italic 18px "Courier New", Courier, monospace';
         } else {
-          ctx.fillStyle = '#1d4ed8'; // Royal blue pen for handwriting text
+          ctx.fillStyle = '#1d4ed8';
           ctx.font = 'italic 16px "Courier New", Courier, monospace';
         }
         ctx.fillText(line.text, line.x, line.y);
       });
 
-      // Draw custom visual diagrams inside demo pages to support visual criteria
+      // Draw custom visual diagrams inside demo pages
       if (pageNum === 1) {
-        // Draw Plant Diagram
-        ctx.strokeStyle = '#059669'; // Emerald green
+        ctx.strokeStyle = '#059669';
         ctx.fillStyle = '#10b981';
         ctx.lineWidth = 2.5;
 
@@ -115,7 +118,7 @@ export const AnswerViewer: React.FC<AnswerViewerProps> = ({
         ctx.stroke();
 
         // Draw Roots
-        ctx.strokeStyle = '#b45309'; // Amber brown
+        ctx.strokeStyle = '#b45309';
         ctx.lineWidth = 2.0;
         ctx.beginPath();
         ctx.moveTo(425, 300);
@@ -126,20 +129,20 @@ export const AnswerViewer: React.FC<AnswerViewerProps> = ({
         ctx.lineTo(428, 350);
         ctx.stroke();
 
-        // Draw Labels text
+        // Labels
         ctx.fillStyle = '#b45309';
         ctx.font = 'bold italic 12px "Courier New"';
         ctx.fillText('Water (Roots)', 340, 345);
 
-        ctx.fillStyle = '#eab308'; // yellow sunlight label
+        ctx.fillStyle = '#eab308';
         ctx.font = 'bold italic 12px "Courier New"';
         ctx.fillText('Sunlight', 380, 160);
 
-        ctx.fillStyle = '#374151'; // carbon dioxide label
+        ctx.fillStyle = '#374151';
         ctx.font = 'bold italic 12px "Courier New"';
         ctx.fillText('Carbon dioxide', 260, 240);
 
-        ctx.fillStyle = '#059669'; // oxygen label
+        ctx.fillStyle = '#059669';
         ctx.font = 'bold italic 12px "Courier New"';
         ctx.fillText('Oxygen', 485, 210);
 
@@ -153,30 +156,7 @@ export const AnswerViewer: React.FC<AnswerViewerProps> = ({
     }
   };
 
-  // Sync current page with first active region when question changes
-  useEffect(() => {
-    if (activeRegions.length > 0) {
-      setCurrentPage(activeRegions[0].page);
-    }
-  }, [activeRegions]);
-
-  // Adjust container width when fitting
-  const handleFitToPage = () => {
-    if (containerRef.current) {
-      const parentWidth = containerRef.current.parentElement?.clientWidth || 650;
-      setContainerWidth(parentWidth - 32); // subtract padding
-      setZoomScale(1.0);
-    }
-  };
-
-  // Run initial fit
-  useEffect(() => {
-    handleFitToPage();
-    window.addEventListener('resize', handleFitToPage);
-    return () => window.removeEventListener('resize', handleFitToPage);
-  }, []);
-
-  // Redraw canvas on page change or zoom change
+  // Redraw canvas on page change
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -199,208 +179,149 @@ export const AnswerViewer: React.FC<AnswerViewerProps> = ({
         };
         img.src = page.dataUrl;
       } else {
-        // Fallback clear canvas
         canvas.width = 650;
         canvas.height = 800;
-        ctx.fillStyle = '#1e293b';
+        ctx.fillStyle = '#f8fafc';
         ctx.fillRect(0, 0, 650, 800);
-        ctx.fillStyle = '#94a3b8';
+        ctx.fillStyle = '#64748b';
         ctx.font = '14px Inter';
-        ctx.fillText('No Answer Sheet Image Loaded', 220, 400);
+        ctx.fillText('No Answer Sheet Loaded', 240, 400);
       }
     }
-  }, [currentPage, pages, isDemoMode]);
+  }, [currentPage, pages, isDemoMode, totalPages]);
 
-  // Handle auto scroll-to-highlight
-  useEffect(() => {
-    const activeRegion = activeRegions.find(r => r.page === currentPage);
-    if (activeRegion && highlightRef.current && containerRef.current) {
-      setTimeout(() => {
-        highlightRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
-      }, 100);
-    }
-  }, [currentPage, activeRegions]);
+  // Page dimension helpers
+  const activePageWidth = isDemoMode ? 850 : (pages.find(p => p.pageNumber === currentPage)?.width || 650);
+  const activePageHeight = isDemoMode ? 1100 : (pages.find(p => p.pageNumber === currentPage)?.height || 850);
 
-  // Get active regions for the current page
   const currentRegions = activeRegions.filter(r => r.page === currentPage);
-  
-  // Calculate rendering size parameters
-  const renderedWidth = containerWidth * zoomScale;
-  const renderedHeight = renderedWidth * pageAspect;
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 border-slate-800 text-white select-none">
-      {/* Top Header Panel */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-slate-950 border-b border-slate-800">
-        <div className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-violet-400" />
-          <div>
-            <h3 className="text-sm font-semibold tracking-wide">Student Answer Sheet</h3>
-            {selectedLabel && (
-              <p className="text-xs text-slate-400 flex items-center gap-1">
-                <CornerDownRight className="h-3.5 w-3.5 text-violet-400" />
-                Highlighting: <span className="text-violet-300 font-bold">{selectedLabel}</span>
-              </p>
-            )}
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-[#DCE0E5]">
+      {/* Dark Toolbar Header */}
+      <div className="flex h-[60px] shrink-0 items-center justify-between bg-[#2B2B2B] px-4 sm:px-6">
+        <div className="flex items-center gap-6">
+          <h2 className="hidden sm:block text-[15px] font-bold text-white">Answer Sheet</h2>
+
+          {/* Zoom Controls */}
+          <div className="flex items-center rounded-xl bg-[#3D3D3D] px-2 py-1.5 text-white shadow-sm">
+            <button 
+              aria-label="Zoom out" 
+              onClick={() => setZoomScale((value) => Math.max(0.4, value - 0.2))} 
+              className="flex items-center justify-center p-1 hover:text-slate-350 transition-colors cursor-pointer"
+            >
+              <Minus size={15} strokeWidth={3} />
+            </button>
+            <span className="w-[42px] text-center text-[12px] font-bold">
+              {Math.round(zoomScale * 100)}%
+            </span>
+            <button 
+              aria-label="Zoom in" 
+              onClick={() => setZoomScale((value) => Math.min(2.0, value + 0.2))} 
+              className="flex items-center justify-center p-1 hover:text-slate-350 transition-colors cursor-pointer"
+            >
+              <Plus size={15} strokeWidth={3} />
+            </button>
           </div>
         </div>
 
-        {/* Action Bar (Zoom, Pagination) */}
-        <div className="flex items-center gap-4">
-          {/* Zoom Actions */}
-          <div className="flex items-center bg-slate-800 rounded-lg border border-slate-700 p-0.5">
-            <button
-              onClick={() => setZoomScale(Math.max(0.6, zoomScale - 0.1))}
-              className="p-1.5 hover:bg-slate-700 hover:text-white rounded-md text-slate-400 transition-colors"
-              title="Zoom Out"
-            >
-              <ZoomOut className="h-4 w-4" />
-            </button>
-            <span className="text-xs font-semibold px-2 text-slate-300 w-12 text-center">
-              {Math.round(zoomScale * 100)}%
-            </span>
-            <button
-              onClick={() => setZoomScale(Math.min(1.8, zoomScale + 0.1))}
-              className="p-1.5 hover:bg-slate-700 hover:text-white rounded-md text-slate-400 transition-colors"
-              title="Zoom In"
-            >
-              <ZoomIn className="h-4 w-4" />
-            </button>
-            <button
-              onClick={handleFitToPage}
-              className="p-1.5 hover:bg-slate-700 hover:text-white rounded-md text-slate-400 border-l border-slate-700 transition-colors"
-              title="Fit to Width"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Pagination Actions */}
-          <div className="flex items-center bg-slate-800 rounded-lg border border-slate-700 p-0.5">
-            <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="p-1.5 hover:bg-slate-700 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent rounded-md text-slate-400 transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="text-xs font-semibold px-2.5 text-slate-300">
-              {currentPage} / {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-              className="p-1.5 hover:bg-slate-700 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent rounded-md text-slate-400 transition-colors"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+        {/* Page Controls */}
+        <div className="flex items-center rounded-xl bg-[#3D3D3D] px-2 py-1.5 text-white shadow-sm">
+          <button 
+            aria-label="Previous page" 
+            disabled={currentPage <= 1} 
+            onClick={() => setCurrentPage((value) => value - 1)} 
+            className="flex items-center justify-center p-1 hover:text-slate-350 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          >
+            <ChevronLeft size={16} strokeWidth={3} />
+          </button>
+          <span className="min-w-[70px] text-center text-[12px] font-bold">
+            Page {currentPage} of {totalPages || 1}
+          </span>
+          <button 
+            aria-label="Next page" 
+            disabled={currentPage >= totalPages} 
+            onClick={() => setCurrentPage((value) => value + 1)} 
+            className="flex items-center justify-center p-1 hover:text-slate-350 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          >
+            <ChevronRight size={16} strokeWidth={3} />
+          </button>
         </div>
       </div>
 
-      {/* Multi-page & Answer Region indicators */}
-      {activeRegions.length > 0 && (() => {
-        const uniquePages = Array.from(new Set(activeRegions.map((r) => r.page)));
-        const spansMultiplePages = uniquePages.length > 1;
+      {/* Answer continuation banner */}
+      {regionPages.length > 1 && (
+        <div className="flex gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 text-left items-center">
+          <span className="font-semibold">Answer spans pages:</span>
+          {regionPages.map((number) => (
+            <button 
+              key={number} 
+              onClick={() => setCurrentPage(number)} 
+              className={`underline hover:text-amber-950 font-bold transition-all px-1.5 py-0.5 rounded cursor-pointer ${
+                currentPage === number ? "bg-amber-100 text-amber-900 border border-amber-300" : ""
+              }`}
+            >
+              page {number}
+            </button>
+          ))}
+        </div>
+      )}
 
-        return (
-          <div className="flex flex-wrap items-center gap-3 px-6 py-2.5 bg-slate-900 border-b border-slate-800 text-xs">
-            {spansMultiplePages ? (
-              <span className="font-bold text-violet-300">Answer Spans Multiple Pages:</span>
-            ) : (
-              <span className="font-bold text-slate-400">Answer Regions:</span>
-            )}
-            <div className="flex flex-wrap items-center gap-1.5">
-              {activeRegions.map((region, idx) => {
-                const typeLabel = region.type
-                  ? region.type.charAt(0).toUpperCase() + region.type.slice(1)
-                  : `Region ${idx + 1}`;
-
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrentPage(region.page)}
-                    className={`px-2.5 py-1 rounded-md font-bold transition-all flex items-center gap-1.5 ${
-                      currentPage === region.page
-                        ? 'bg-violet-600 text-white shadow-sm ring-1 ring-violet-500 scale-[1.02]'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
-                    }`}
-                  >
-                    <FileText className="h-3.5 w-3.5 opacity-80" />
-                    <span>
-                      {typeLabel} (Page {region.page})
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Canvas Viewport Viewer Container */}
-      <div 
-        ref={containerRef}
-        className="flex-1 overflow-auto p-8 flex justify-center bg-slate-950 relative"
-      >
+      {/* Document Viewer Area */}
+      <div ref={containerRef} className="min-h-0 flex-1 overflow-auto p-4 sm:p-6 scroll-smooth">
         <div 
-          className="relative select-none border border-slate-800 shadow-2xl rounded-sm bg-white"
+          className="relative mx-auto origin-top bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-all duration-200 border border-slate-300 rounded" 
           style={{ 
-            width: `${renderedWidth}px`, 
-            height: `${renderedHeight}px`,
-            minWidth: `${renderedWidth}px`, 
-            minHeight: `${renderedHeight}px` 
+            width: `${zoomScale * 100}%`, 
+            minWidth: `${zoomScale * 100}%`, 
+            aspectRatio: `${1/pageAspect}` 
           }}
         >
-          {/* Main Document Canvas */}
+          {/* Base Document Rendering Canvas */}
           <canvas
             ref={canvasRef}
-            className="w-full h-full select-none"
+            className="w-full h-full select-none block"
           />
 
-          {/* Highlight Bounding Box Overlays for student writing regions */}
-          {currentRegions.map((region, idx) => {
-            const box = scaleBox(region.bbox, renderedWidth, renderedHeight);
+          {/* Highlight Bounding Box Overlays */}
+          {currentRegions.map((region, index) => {
+            const left = `${region.bbox.x / 10}%`;
+            const top = `${region.bbox.y / 10}%`;
+            const width = `${region.bbox.width / 10}%`;
+            const height = `${region.bbox.height / 10}%`;
+
             return (
               <div
-                key={`region_${idx}`}
-                ref={idx === 0 ? highlightRef : null}
-                className="absolute border-[2.5px] border-emerald-500 bg-emerald-500/10 rounded-md shadow-[0_0_12px_rgba(16,185,129,0.25)] animate-pulse transition-all duration-300 pointer-events-none"
-                style={{
-                  left: `${box.x}px`,
-                  top: `${box.y}px`,
-                  width: `${box.width}px`,
-                  height: `${box.height}px`,
-                }}
+                key={`mapped_${currentPage}_${index}`}
+                aria-label="Mapped answer region"
+                className="absolute z-10 rounded-[4px] border-2 border-[#1DB335] bg-[#1DB335]/15 shadow-[0_0_0_2px_rgba(255,255,255,0.3)] transition-all pointer-events-none"
+                style={{ left, top, width, height }}
               >
-                <span className="absolute -top-6 left-0 bg-emerald-600 text-white font-extrabold text-[9px] px-1.5 py-0.5 rounded shadow-sm">
-                  Answer Region ({region.type})
-                </span>
+                {/* Overlay Badge Tag */}
+                <div className="absolute -left-0.5 -top-5 flex h-5 items-center justify-center rounded-t-[5px] bg-[#1DB335] px-2 text-[10px] font-bold text-white whitespace-nowrap">
+                  Q{selectedLabel}
+                </div>
               </div>
             );
           })}
 
-          {/* Highlight Bounding Box Overlays for visual elements (diagrams, equations) */}
+          {/* Visual Elements (Multimodal detected items) highlights */}
           {selectedAnswer?.visualElements
             ?.filter((vel) => vel.page === currentPage)
-            .map((vel, idx) => {
-              const box = scaleBox(vel.bbox, renderedWidth, renderedHeight);
+            .map((vel, index) => {
+              const left = `${vel.bbox.x / 10}%`;
+              const top = `${vel.bbox.y / 10}%`;
+              const width = `${vel.bbox.width / 10}%`;
+              const height = `${vel.bbox.height / 10}%`;
+
               return (
                 <div
-                  key={`vel_${idx}`}
-                  className="absolute border-[2.5px] border-violet-500 bg-violet-500/10 rounded-md shadow-[0_0_12px_rgba(139,92,246,0.25)] transition-all duration-300 pointer-events-none"
-                  style={{
-                    left: `${box.x}px`,
-                    top: `${box.y}px`,
-                    width: `${box.width}px`,
-                    height: `${box.height}px`,
-                  }}
+                  key={`vel_${currentPage}_${index}`}
+                  className="absolute border-2 border-violet-500 bg-violet-500/10 rounded-[4px] shadow-[0_0_8px_rgba(139,92,246,0.25)] transition-all pointer-events-none z-10"
+                  style={{ left, top, width, height }}
                 >
-                  <span className="absolute -top-6 left-0 bg-violet-600 text-white font-extrabold text-[9px] px-1.5 py-0.5 rounded shadow-sm">
-                    {vel.type}: {vel.description.slice(0, 35)}...
+                  <span className="absolute -top-5 left-0 bg-violet-600 text-white font-extrabold text-[9px] px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">
+                    {vel.type}: {vel.description.slice(0, 20)}...
                   </span>
                 </div>
               );

@@ -1,17 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/no-unescaped-entities */
-import React, { useRef, useState } from 'react';
-import { Upload, FileText, Trash2, FileImage, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
-import { cn } from '@/lib/utils/coordinates';
+'use client';
 
-
-export interface UploadedFileInfo {
-  file: File;
-  name: string;
-  size: string;
-  type: string;
-  pageCount: number | null;
-  previewUrl?: string;
-}
+import React, { useRef } from 'react';
+import { Upload, X, ArrowRight } from 'lucide-react';
 
 interface UploadPanelProps {
   onAnalyze: (qpFile: File, asFile: File) => void;
@@ -19,311 +9,183 @@ interface UploadPanelProps {
 }
 
 export const UploadPanel: React.FC<UploadPanelProps> = ({ onAnalyze, onLaunchDemo }) => {
-  const [qpFile, setQpFile] = useState<UploadedFileInfo | null>(null);
-  const [asFile, setAsFile] = useState<UploadedFileInfo | null>(null);
-  const [qpError, setQpError] = useState<string | null>(null);
-  const [asError, setAsError] = useState<string | null>(null);
-  const [isQpDragging, setIsQpDragging] = useState(false);
-  const [isAsDragging, setIsAsDragging] = useState(false);
+  const [questionPaper, setQuestionPaper] = React.useState<File | null>(null);
+  const [answerSheet, setAnswerSheet] = React.useState<File | null>(null);
 
   const qpInputRef = useRef<HTMLInputElement>(null);
   const asInputRef = useRef<HTMLInputElement>(null);
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const validateFile = (file: File, type: 'qp' | 'as') => {
-    const errorSetter = type === 'qp' ? setQpError : setAsError;
-    const fileSetter = type === 'qp' ? setQpFile : setAsFile;
-    errorSetter(null);
-
-    // Limit to 15MB
-    const maxSize = 15 * 1024 * 1024;
-    if (file.size > maxSize) {
-      errorSetter('File is too large. Maximum allowed size is 15MB.');
-      return;
-    }
-
-    const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      errorSetter('Invalid file type. Only PDF and PNG/JPEG/WebP images are supported.');
-      return;
-    }
-
-    // Rough page detection: if it's an image, it's 1 page. If PDF, we will extract actual count in page.tsx
-    fileSetter({
-      file,
-      name: file.name,
-      size: formatFileSize(file.size),
-      type: file.type === 'application/pdf' ? 'PDF Document' : 'Image',
-      pageCount: file.type === 'application/pdf' ? null : 1, // Will be updated for PDF dynamically
-    });
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'qp' | 'as') => {
-    if (e.target.files && e.target.files[0]) {
-      validateFile(e.target.files[0], type);
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (questionPaper && answerSheet) {
+      onAnalyze(questionPaper, answerSheet);
     }
   };
 
-  const handleDragOver = (e: React.DragEvent, type: 'qp' | 'as') => {
-    e.preventDefault();
-    if (type === 'qp') setIsQpDragging(true);
-    else setIsAsDragging(true);
-  };
+  const canStart = questionPaper && answerSheet;
 
-  const handleDragLeave = (type: 'qp' | 'as') => {
-    if (type === 'qp') setIsQpDragging(false);
-    else setIsAsDragging(false);
-  };
+  const renderFilePicker = (
+    id: string,
+    titlePrefix: string,
+    highlightText: string,
+    file: File | null,
+    setFile: (f: File | null) => void,
+    inputRef: React.RefObject<HTMLInputElement | null>
+  ) => {
+    if (file) {
+      return (
+        <div className="flex h-full w-full items-center justify-center bg-white p-2">
+          <div className="relative flex items-center gap-[12px] rounded-[10px] p-2">
+            {/* Remove File Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setFile(null);
+                if (inputRef.current) inputRef.current.value = '';
+              }}
+              className="absolute -right-3 -top-3 z-10 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[#5E5E5E] text-white hover:bg-[#404040] transition-colors"
+              title="Remove file"
+            >
+              <X size={12} strokeWidth={3} />
+            </button>
 
-  const handleDrop = (e: React.DragEvent, type: 'qp' | 'as') => {
-    e.preventDefault();
-    if (type === 'qp') {
-      setIsQpDragging(false);
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        validateFile(e.dataTransfer.files[0], 'qp');
-      }
-    } else {
-      setIsAsDragging(false);
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        validateFile(e.dataTransfer.files[0], 'as');
-      }
+            {/* PDF Badge Icon */}
+            <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[8px] bg-[#EB5757] text-[10px] font-bold text-white shadow-sm">
+              PDF
+            </div>
+            <div className="flex flex-col justify-center text-left">
+              <span className="text-[13px] font-bold text-[#171717] truncate max-w-[135px] sm:max-w-[200px] leading-tight">
+                {file.name}
+              </span>
+              <span className="text-[11px] font-medium text-[#9CA3AF] mt-[4px] leading-tight">
+                {(file.size / 1024 / 1024).toFixed(2)} MB
+              </span>
+            </div>
+          </div>
+        </div>
+      );
     }
-  };
 
-  const removeFile = (type: 'qp' | 'as') => {
-    if (type === 'qp') {
-      setQpFile(null);
-      setQpError(null);
-      if (qpInputRef.current) qpInputRef.current.value = '';
-    } else {
-      setAsFile(null);
-      setAsError(null);
-      if (asInputRef.current) asInputRef.current.value = '';
-    }
-  };
-
-  const triggerAnalyze = () => {
-    if (qpFile && asFile) {
-      onAnalyze(qpFile.file, asFile.file);
-    }
+    return (
+      <label 
+        htmlFor={id} 
+        className="flex h-full w-full cursor-pointer flex-col items-center justify-center bg-white hover:bg-slate-50 transition-colors"
+      >
+        <div className="mb-[10px] flex h-[34px] w-[34px] items-center justify-center rounded-[7px] bg-[#F5F5F5] text-[#858585]">
+          <Upload size={18} />
+        </div>
+        
+        <span className="mb-[4px] text-[15px] font-semibold text-[#171717]">
+          {titlePrefix} <span className="text-[#f05f37]">{highlightText}</span>
+        </span>
+        
+        <span className="text-[12px] text-[#9CA3AF]">
+          Max 15MB
+        </span>
+        
+        <input 
+          id={id} 
+          ref={inputRef as any}
+          className="sr-only" 
+          type="file" 
+          accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp" 
+          onChange={(event) => setFile(event.target.files?.[0] || null)} 
+        />
+      </label>
+    );
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] py-12 px-4 max-w-5xl mx-auto">
-      {/* Figma design: Card container */}
-      <div className="w-full bg-white border border-slate-200 rounded-2xl shadow-sm p-8 md:p-12">
-        <div className="text-center max-w-xl mx-auto mb-10">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 mb-4 border border-violet-100">
-            <Sparkles className="h-3 w-3" /> Teacher Assessment Dashboard
+    <section className="mx-auto flex h-full w-full flex-col items-center px-4 pt-1 sm:pt-8 bg-transparent max-w-3xl">
+      {/* Header Title */}
+      <div className="w-full text-center mt-6">
+        {/* Desktop Heading */}
+        <h2 className="hidden sm:flex items-center justify-center text-[34px] font-bold leading-none tracking-[-1.5px]">
+          <span className="text-[#272727]">Upload</span>
+          <span className="ml-1.5 rounded-[7px] bg-[#f9e4da] px-[10px] py-[7px] text-[#f05f37]">
+            Question Paper &amp; Answer Sheets
           </span>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-3">
-            Upload Question Paper & Answer Sheet
-          </h1>
-          <p className="text-slate-500 text-sm leading-relaxed">
-            Upload a printed exam question paper and a student's handwritten answer sheet. 
-            The AI will extract, map, and highlight matching regions.
+        </h2>
+
+        {/* Mobile Heading */}
+        <h2 className="sm:hidden text-center text-[22px] font-bold leading-tight tracking-tight text-[#272727]">
+          Upload Question Paper<br />
+          &amp; Answer Sheets
+        </h2>
+
+        <p className="mt-[6px] sm:mt-[9px] text-[15px] sm:text-[17px] font-normal leading-[22px] text-[#303030]">
+          Upload both files to get started
+        </p>
+      </div>
+
+      {/* Rotating Teacher Avatar Graphic */}
+      <div className="relative mt-[16px] sm:mt-[24px] h-[100px] w-[100px] sm:h-[130px] sm:w-[130px] shrink-0">
+        {/* Teacher Avatar */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/assets/teacherlogo.png"
+          alt="Teacher"
+          className="absolute left-1/2 top-1/2 z-10 h-[80px] w-[80px] sm:h-[110px] sm:w-[110px] -translate-x-1/2 -translate-y-1/2 rounded-full object-cover"
+        />
+
+        {/* Spinning Outer Icons */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/assets/iconsaroundteacherlogo.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute left-1/2 top-1/2 z-20 h-[80px] w-[80px] sm:h-[110px] sm:w-[110px] -translate-x-1/2 -translate-y-1/2 object-contain opacity-90 animate-[spin_30s_linear_infinite]"
+        />
+      </div>
+
+      {/* Upload Form Box */}
+      <form
+        onSubmit={handleSubmit}
+        className="mt-[16px] sm:mt-[18px] w-full max-w-[716px]"
+      >
+        {/* Gray Container containing the Pickers */}
+        <div className="flex flex-col sm:grid sm:h-[181px] sm:grid-cols-2 gap-[8px] sm:gap-[14px] rounded-[20px] bg-[#eeeeee] p-[8px] sm:p-[10px]">
+          {/* Question Paper Dropzone */}
+          <div className="h-[110px] sm:h-[159px] overflow-hidden rounded-[16px] border-2 border-dashed border-[#d8d8d8] bg-white">
+            {renderFilePicker("question-paper", "Upload", "Question Paper", questionPaper, setQuestionPaper, qpInputRef)}
+          </div>
+
+          {/* Answer Sheet Dropzone */}
+          <div className="h-[110px] sm:h-[159px] overflow-hidden rounded-[16px] border-2 border-dashed border-[#d8d8d8] bg-white">
+            {renderFilePicker("answer-sheet", "Upload", "Answer Sheet", answerSheet, setAnswerSheet, asInputRef)}
+          </div>
+        </div>
+
+        {/* Buttons / Actions */}
+        <div className="mt-[24px] sm:mt-[32px] flex flex-col items-center gap-4">
+          <button
+            type="submit"
+            disabled={!canStart}
+            className={`inline-flex h-[36px] w-[152px] items-center justify-center gap-2 rounded-full px-[15px] text-[13px] font-semibold leading-none transition-colors disabled:cursor-not-allowed ${
+              canStart
+                ? "bg-[#EA643A] text-white hover:bg-[#d55229]"
+                : "bg-gray-400 text-gray-200"
+            }`}
+          >
+            <span>Start Mapping</span>
+            <ArrowRight size={16} strokeWidth={2.5} />
+          </button>
+
+          <button
+            type="button"
+            onClick={onLaunchDemo}
+            className="text-[12px] font-bold text-slate-500 hover:text-[#f05f37] underline transition-colors cursor-pointer"
+          >
+            Or play with Demo Mode
+          </button>
+
+          <p className="max-w-[420px] text-center text-[12px] font-normal leading-[17px] text-gray-500 mt-2">
+            Once both files are uploaded, you'll be able to map
+            answers with questions automatically.
           </p>
         </div>
-
-        {/* Dual drag-and-drop boxes */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-          {/* Question Paper Upload Box */}
-          <div className="flex flex-col">
-            <label className="text-sm font-semibold text-slate-700 mb-2.5 flex items-center gap-1.5">
-              <span>1. Question Paper</span>
-              <span className="text-xs font-normal text-slate-400">(PDF or Images)</span>
-            </label>
-
-            {!qpFile ? (
-              <div
-                onDragOver={(e) => handleDragOver(e, 'qp')}
-                onDragLeave={() => handleDragLeave('qp')}
-                onDrop={(e) => handleDrop(e, 'qp')}
-                onClick={() => qpInputRef.current?.click()}
-                className={cn(
-                  'flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 h-64',
-                  isQpDragging
-                    ? 'border-violet-500 bg-violet-50/50 scale-[1.01]'
-                    : 'border-slate-300 hover:border-violet-400 hover:bg-slate-50/50'
-                )}
-              >
-                <input
-                  type="file"
-                  ref={qpInputRef}
-                  onChange={(e) => handleFileChange(e, 'qp')}
-                  accept=".pdf,image/png,image/jpeg,image/jpg,image/webp"
-                  className="hidden"
-                />
-                <div className="p-4 bg-slate-100 rounded-full text-slate-600 mb-4 group-hover:scale-110 transition-transform">
-                  <Upload className="h-6 w-6" />
-                </div>
-                <p className="text-sm font-semibold text-slate-700 mb-1">
-                  Drag & drop file here
-                </p>
-                <p className="text-xs text-slate-400 mb-3">or browse from your system</p>
-                <p className="text-[11px] text-slate-400 max-w-[200px]">
-                  PDF, PNG, JPG, JPEG, or WebP (max 15MB)
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col justify-between border border-slate-200 rounded-xl p-6 bg-slate-50/50 h-64">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-violet-100 text-violet-700 rounded-lg">
-                    {qpFile.type === 'PDF Document' ? (
-                      <FileText className="h-6 w-6" />
-                    ) : (
-                      <FileImage className="h-6 w-6" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate mb-0.5">
-                      {qpFile.name}
-                    </p>
-                    <p className="text-xs text-slate-400 mb-1">{qpFile.size}</p>
-                    <div className="flex items-center gap-1.5 text-xs text-violet-600 font-medium">
-                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
-                      <span>Ready to extract</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-auto">
-                  <span className="text-xs text-slate-500 font-medium">
-                    Type: <span className="text-slate-700">{qpFile.type}</span>
-                  </span>
-                  <button
-                    onClick={() => removeFile('qp')}
-                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Remove file"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-            
-            {qpError && (
-              <div className="flex items-center gap-1.5 mt-2 text-xs text-red-500">
-                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                <span>{qpError}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Student Answer Sheet Upload Box */}
-          <div className="flex flex-col">
-            <label className="text-sm font-semibold text-slate-700 mb-2.5 flex items-center gap-1.5">
-              <span>2. Student Answer Sheet</span>
-              <span className="text-xs font-normal text-slate-400">(Handwritten PDF/Images)</span>
-            </label>
-
-            {!asFile ? (
-              <div
-                onDragOver={(e) => handleDragOver(e, 'as')}
-                onDragLeave={() => handleDragLeave('as')}
-                onDrop={(e) => handleDrop(e, 'as')}
-                onClick={() => asInputRef.current?.click()}
-                className={cn(
-                  'flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 h-64',
-                  isAsDragging
-                    ? 'border-violet-500 bg-violet-50/50 scale-[1.01]'
-                    : 'border-slate-300 hover:border-violet-400 hover:bg-slate-50/50'
-                )}
-              >
-                <input
-                  type="file"
-                  ref={asInputRef}
-                  onChange={(e) => handleFileChange(e, 'as')}
-                  accept=".pdf,image/png,image/jpeg,image/jpg,image/webp"
-                  className="hidden"
-                />
-                <div className="p-4 bg-slate-100 rounded-full text-slate-600 mb-4 group-hover:scale-110 transition-transform">
-                  <Upload className="h-6 w-6" />
-                </div>
-                <p className="text-sm font-semibold text-slate-700 mb-1">
-                  Drag & drop file here
-                </p>
-                <p className="text-xs text-slate-400 mb-3">or browse from your system</p>
-                <p className="text-[11px] text-slate-400 max-w-[200px]">
-                  PDF, PNG, JPG, JPEG, or WebP (max 15MB)
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col justify-between border border-slate-200 rounded-xl p-6 bg-slate-50/50 h-64">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-violet-100 text-violet-700 rounded-lg">
-                    {asFile.type === 'PDF Document' ? (
-                      <FileText className="h-6 w-6" />
-                    ) : (
-                      <FileImage className="h-6 w-6" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate mb-0.5">
-                      {asFile.name}
-                    </p>
-                    <p className="text-xs text-slate-400 mb-1">{asFile.size}</p>
-                    <div className="flex items-center gap-1.5 text-xs text-violet-600 font-medium">
-                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
-                      <span>Ready to extract</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-auto">
-                  <span className="text-xs text-slate-500 font-medium">
-                    Type: <span className="text-slate-700">{asFile.type}</span>
-                  </span>
-                  <button
-                    onClick={() => removeFile('as')}
-                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Remove file"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {asError && (
-              <div className="flex items-center gap-1.5 mt-2 text-xs text-red-500">
-                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                <span>{asError}</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 border-t border-slate-100 pt-8">
-          <button
-            onClick={onLaunchDemo}
-            className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 bg-white hover:bg-slate-50 hover:text-slate-800 active:bg-slate-100 transition-all shadow-sm"
-          >
-            Play with Demo Mode
-          </button>
-          
-          <button
-            onClick={triggerAnalyze}
-            disabled={!qpFile || !asFile}
-            className={cn(
-              'w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 rounded-xl text-sm font-bold text-white shadow-sm transition-all duration-200',
-              qpFile && asFile
-                ? 'bg-violet-600 hover:bg-violet-700 active:bg-violet-800 cursor-pointer'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-            )}
-          >
-            Start Analyzing Documents
-          </button>
-        </div>
-      </div>
-    </div>
+      </form>
+    </section>
   );
 };

@@ -9,7 +9,7 @@ import { UploadPanel } from '@/components/UploadPanel';
 import { ProcessingProgress } from '@/components/ProcessingProgress';
 import { QuestionList } from '@/components/QuestionList';
 import { AnswerViewer } from '@/components/AnswerViewer';
-import { GradingPanel } from '@/components/GradingPanel';
+import { LayoutShell } from '@/components/LayoutShell';
 import { convertPdfToImages, convertImageToRenderedPage, RenderedPage } from '@/lib/utils/pdf';
 import { 
   Question, Answer, AnswerMapping, GradingResult, 
@@ -21,7 +21,7 @@ export default function Home() {
   // App States
   const [appState, setAppState] = useState<'upload' | 'processing' | 'results'>('upload');
   const [isDemoMode, setIsDemoMode] = useState(false);
-  const [mobileActiveTab, setMobileActiveTab] = useState<'list' | 'viewer' | 'grading'>('list');
+  const [mobileActiveTab, setMobileActiveTab] = useState<'Questions' | 'Answer Sheet'>('Questions');
 
   // File states (cache rendered pages client-side)
   const [questionPages, setQuestionPages] = useState<RenderedPage[]>([]);
@@ -62,13 +62,13 @@ export default function Home() {
         setSelectedQuestionId(firstQ.id);
         setSelectedAnswerId(mapping?.answerId || null);
         setIsUnmatchedSelected(false);
-        setMobileActiveTab('list');
+        setMobileActiveTab('Questions');
       } else if (result.unmatchedAnswers.length > 0) {
         const firstUnmatched = result.unmatchedAnswers[0];
         setSelectedQuestionId(firstUnmatched.id);
         setSelectedAnswerId(firstUnmatched.id);
         setIsUnmatchedSelected(true);
-        setMobileActiveTab('list');
+        setMobileActiveTab('Questions');
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -426,7 +426,7 @@ export default function Home() {
     setSelectedAnswerId(aId);
     setIsUnmatchedSelected(isUnmatched);
     // On mobile, automatically show the highlighted viewer when a question is clicked!
-    setMobileActiveTab('viewer');
+    setMobileActiveTab('Answer Sheet');
   };
 
   // Find selection objects helper
@@ -465,225 +465,101 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-100 font-sans overflow-hidden text-slate-800">
-      
-      {/* 1. Global Left Navigation Sidebar (Figma style) */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 text-white flex flex-col justify-between flex-shrink-0 hidden md:flex">
-        <div>
-          {/* Logo Heading */}
-          <div className="p-6 border-b border-slate-800 flex items-center gap-2">
-            <div className="p-1.5 bg-violet-600 rounded-lg text-white">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <div>
-              <span className="font-extrabold text-sm tracking-wide">VedaAI</span>
-              <span className="text-[10px] text-slate-400 block -mt-1 font-bold">ASSESSMENT PARTNER</span>
-            </div>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="p-4 space-y-1.5">
-            <button 
-              onClick={() => {
-                setAppState('upload');
-                setQuestionPages([]);
-                setAnswerPages([]);
-                setStatus({ stage: 'idle', progress: 0, message: '' });
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                appState === 'upload' || appState === 'processing'
-                  ? 'bg-violet-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <BookOpen className="h-4.5 w-4.5" />
-              <span>New Assessment</span>
-            </button>
-
-            <button 
-              disabled={appState !== 'results'}
-              onClick={() => setAppState('results')}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                appState === 'results'
-                  ? 'bg-violet-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent'
-              }`}
-            >
-              <FileText className="h-4.5 w-4.5" />
-              <span>Assessment Results</span>
-            </button>
-
-            <div className="h-px bg-slate-800 my-4" />
-
-            <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-all cursor-not-allowed opacity-60">
-              <Users className="h-4.5 w-4.5" />
-              <span>Student List</span>
-            </button>
-
-            <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-all cursor-not-allowed opacity-60">
-              <Settings className="h-4.5 w-4.5" />
-              <span>Settings</span>
-            </button>
-          </nav>
-        </div>
-
-        {/* User info at bottom */}
-        <div className="p-4 border-t border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 bg-violet-500 rounded-full flex items-center justify-center font-bold text-xs">
-              T
-            </div>
-            <div>
-              <p className="text-xs font-bold">Teacher Workspace</p>
-              <p className="text-[10px] text-slate-500">active</p>
-            </div>
-          </div>
-          <button className="p-1.5 text-slate-500 hover:text-red-400 rounded-lg hover:bg-slate-800">
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
-      </aside>
-
-      {/* 2. Main Content Body Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50">
+    <LayoutShell>
+      <div className="h-full overflow-hidden">
         
-        {/* Top Navbar */}
-        <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3">
-            {appState === 'results' && (
+        {/* UPLOAD SCREEN */}
+        {appState === 'upload' && (
+          <UploadPanel 
+            onAnalyze={handleAnalyze} 
+            onLaunchDemo={handleLaunchDemo} 
+          />
+        )}
+
+        {/* PIPELINE PROCESSING SCREEN */}
+        {appState === 'processing' && (
+          <ProcessingProgress 
+            status={status} 
+            onRetry={() => {
+              const { qp, as: asFile } = lastFilesRef.current;
+              if (qp && asFile) handleAnalyze(qp, asFile);
+              else setAppState('upload');
+            }}
+            onCancel={() => setAppState('upload')}
+          />
+        )}
+
+        {/* RESULTS 2-COLUMN INSPECTOR WORKSPACE */}
+        {appState === 'results' && (
+          <section className="mx-auto flex h-full min-h-0 flex-col p-0 lg:p-2">
+            {/* Mobile Tab Switcher */}
+            <div className="mb-4 m-4 flex rounded-full bg-white shadow-[0_2px_10px_rgba(0,0,0,0.05)] border border-slate-100 p-1.5 lg:hidden">
               <button
-                onClick={() => {
-                  setAppState('upload');
-                  setQuestionPages([]);
-                  setAnswerPages([]);
-                  setStatus({ stage: 'idle', progress: 0, message: '' });
-                }}
-                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors"
-                title="Go Back"
+                onClick={() => setMobileActiveTab("Questions")}
+                className={`flex-1 rounded-full py-2.5 text-[15px] font-semibold transition-colors ${
+                  mobileActiveTab === "Questions" ? "bg-[#2B2B2B] text-white shadow-md font-bold" : "text-slate-500 hover:text-slate-800 font-semibold"
+                }`}
               >
-                <ArrowLeft className="h-4 w-4" />
+                Questions
               </button>
-            )}
-            <h2 className="text-sm font-bold text-slate-800">
-              {appState === 'upload' && 'Document Upload'}
-              {appState === 'processing' && 'Extraction Pipeline Running'}
-              {appState === 'results' && (isDemoMode ? 'Assessment Review (Demo Data)' : 'Assessment Review')}
-            </h2>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {appState === 'results' && (
-              <span className="text-xs text-slate-500 bg-slate-100 border px-3 py-1 rounded-full font-semibold">
-                ID: {result.assessmentId.substring(0, 16)}
-              </span>
-            )}
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">AI Server Status: Active</span>
-          </div>
-        </header>
-
-        {/* Main Workspaces Layout */}
-        <div className="flex-1 overflow-hidden">
-          
-          {/* UPLOAD SCREEN */}
-          {appState === 'upload' && (
-            <div className="h-full overflow-y-auto">
-              <UploadPanel 
-                onAnalyze={handleAnalyze} 
-                onLaunchDemo={handleLaunchDemo} 
-              />
+              <button
+                onClick={() => setMobileActiveTab("Answer Sheet")}
+                className={`flex-1 rounded-full py-2.5 text-[15px] font-semibold transition-colors ${
+                  mobileActiveTab === "Answer Sheet" ? "bg-[#2B2B2B] text-white shadow-md font-bold" : "text-slate-500 hover:text-slate-800 font-semibold"
+                }`}
+              >
+                Answer Sheet
+              </button>
             </div>
-          )}
 
-          {/* PIPELINE PROCESSING SCREEN */}
-          {appState === 'processing' && (
-            <div className="h-full overflow-y-auto">
-              <ProcessingProgress 
-                status={status} 
-                onRetry={() => {
-                  const { qp, as: asFile } = lastFilesRef.current;
-                  if (qp && asFile) handleAnalyze(qp, asFile);
-                  else setAppState('upload');
-                }}
-                onCancel={() => setAppState('upload')}
-              />
-            </div>
-          )}
-
-          {/* RESULTS 3-COLUMN INSPECTOR WORKSPACE */}
-          {appState === 'results' && (
-            <div className="h-full flex flex-col md:flex-row overflow-hidden relative">
-              
-              {/* Responsive Tabs bar for Mobile screen sizes */}
-              <div className="flex md:hidden bg-slate-900 border-b border-slate-800 text-slate-400 font-semibold p-1 flex-shrink-0">
-                <button 
-                  onClick={() => setMobileActiveTab('list')} 
-                  className={`flex-1 py-2 text-center text-xs font-bold rounded-lg transition-all ${mobileActiveTab === 'list' ? 'bg-slate-800 text-white shadow-sm' : ''}`}
-                >
-                  Questions List
-                </button>
-                <button 
-                  onClick={() => setMobileActiveTab('viewer')} 
-                  className={`flex-1 py-2 text-center text-xs font-bold rounded-lg transition-all ${mobileActiveTab === 'viewer' ? 'bg-slate-800 text-white shadow-sm' : ''}`}
-                >
-                  Answer Sheet
-                </button>
-                <button 
-                  onClick={() => setMobileActiveTab('grading')} 
-                  className={`flex-1 py-2 text-center text-xs font-bold rounded-lg transition-all ${mobileActiveTab === 'grading' ? 'bg-slate-800 text-white shadow-sm' : ''}`}
-                >
-                  AI Grading
-                </button>
-              </div>
-              
-              {/* Left Column: Sidebar Question List (25% Width) */}
-              <div className={`w-full md:w-80 h-full flex-shrink-0 md:block ${mobileActiveTab === 'list' ? 'block' : 'hidden'}`}>
-                <QuestionList
-                  questions={result.questions}
-                  answers={result.answers}
-                  mappings={result.mappings}
-                  gradings={result.gradings}
-                  unmatchedAnswers={result.unmatchedAnswers}
-                  selectedQuestionId={selectedQuestionId}
-                  onSelectQuestion={handleSelectQuestion}
-                  gradingStatus={result.gradingStatus}
-                />
+            {/* Main Grid Workspace */}
+            <div className="flex min-h-0 flex-1 flex-col gap-4 sm:gap-6 lg:flex-row overflow-hidden p-4 lg:p-0">
+              {/* Left Column: Sidebar Question List (420px Width) */}
+              <div className={`flex w-full flex-col overflow-hidden rounded-[20px] sm:rounded-3xl bg-white shadow-sm lg:w-[420px] ${
+                mobileActiveTab === "Questions" ? "flex flex-1" : "hidden lg:flex"
+              }`}>
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 sm:px-6 py-4">
+                  <h2 className="text-[15px] font-bold text-slate-900">
+                    Extracted Questions <span className="block sm:inline text-slate-400 font-normal">(from question paper)</span>
+                  </h2>
+                </div>
+                <div className="flex-1 overflow-y-auto no-scrollbar">
+                  <QuestionList
+                    questions={result.questions}
+                    answers={result.answers}
+                    mappings={result.mappings}
+                    gradings={result.gradings}
+                    unmatchedAnswers={result.unmatchedAnswers}
+                    selectedQuestionId={selectedQuestionId}
+                    onSelectQuestion={handleSelectQuestion}
+                    gradingStatus={result.gradingStatus}
+                  />
+                </div>
               </div>
 
-              {/* Middle Column: Answer Page Canvas Viewer (48% Width) */}
-              <div className={`flex-1 h-full min-w-0 md:block ${mobileActiveTab === 'viewer' ? 'block' : 'hidden'}`}>
+              {/* Right Column: Answer Page Canvas Viewer (flex-1 Width) */}
+              <div className={`flex flex-1 flex-col overflow-hidden rounded-[20px] sm:rounded-3xl bg-[#DCE0E5] shadow-sm ${
+                mobileActiveTab === "Answer Sheet" ? "flex flex-1" : "hidden lg:flex"
+              }`}>
                 <AnswerViewer
                   pages={answerPages}
                   activeRegions={getActiveHighlightRegions()}
                   selectedLabel={
                     isUnmatchedSelected && selectedAnswer
-                      ? `Unmatched Block: ${selectedAnswer.rawQuestionReference}`
+                      ? `${selectedAnswer.rawQuestionReference}`
                       : selectedQuestion
-                      ? `Question ${selectedQuestion.number}`
+                      ? `${selectedQuestion.number}`
                       : ''
                   }
                   isDemoMode={isDemoMode}
                   selectedAnswer={selectedAnswer}
                 />
               </div>
-
-              {/* Right Column: Grading / Evaluation Feedback Inspector (27% Width) */}
-              <div className={`w-full md:w-96 h-full flex-shrink-0 border-l border-slate-200 md:block ${mobileActiveTab === 'grading' ? 'block' : 'hidden'}`}>
-                <GradingPanel
-                  selectedQuestion={selectedQuestion}
-                  selectedAnswer={selectedAnswer}
-                  selectedMapping={selectedMapping}
-                  grading={grading}
-                  isUnmatched={isUnmatchedSelected}
-                  gradingStatus={result.gradingStatus}
-                />
-              </div>
-
             </div>
-          )}
+          </section>
+        )}
 
-        </div>
-      </main>
-    </div>
+      </div>
+    </LayoutShell>
   );
 }
